@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"os"
 
 	"github.com/urfave/cli"
 	"github.com/xUnholy/go-proxy/pkg/execute"
@@ -71,6 +73,29 @@ func SetCommand() cli.Command {
 				},
 			},
 			{
+				Name:        "ca-cert",
+				Usage:       "set custom CA cert for proxy",
+				Description: "This command imports a CA cert for use with other tools (eg. gcloud)",
+				Action: func(c *cli.Context) {
+					if !c.Args().Present() {
+						fmt.Println("You must supply a filepath")
+						return
+					}
+
+					caCertPath := c.Args().First()
+
+					if _, err := os.Stat(caCertPath); err == nil {
+						err := copyFile(caCertPath, fmt.Sprintf("%v/.proxyca", os.Getenv("HOME")))
+						if err != nil {
+							log.Fatal(err)
+						}
+						fmt.Println("Stored custom CA cert at ~/.proxyca")
+					} else {
+						fmt.Println("File not found:", caCertPath)
+					}
+				},
+			},
+			{
 				Name:        "username",
 				Usage:       "proxy set username",
 				Description: "This command will update the Username value in your CNTLM.conf file",
@@ -121,4 +146,24 @@ func SetCommand() cli.Command {
 
 func makeProxyURL(port int) string {
 	return fmt.Sprintf("http://localhost:%d", port)
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
 }
